@@ -103,7 +103,7 @@ export const TodoContent: React.FC = () => {
     setTodosFromServer(curTodos => [...curTodos, preparedTodo]);
 
     postTodo(preparedTodo)
-      .then(getTodos)
+      .then(() => getTodos())
       .then(data => setTodosFromServer(data))
       .then(() => setTodoValue(''))
       .catch(() => {
@@ -159,6 +159,7 @@ export const TodoContent: React.FC = () => {
           {/* Add a todo on form submit */}
           <form onSubmit={handleSubmit}>
             <input
+              autoFocus
               value={todoValue}
               onChange={handleInputChange}
               data-cy="NewTodoField"
