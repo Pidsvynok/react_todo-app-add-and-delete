@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Todo } from '../types/Todo';
 import { TodoList } from './TodoList';
 import {
@@ -24,6 +24,10 @@ export const TodoContent: React.FC = () => {
   const [complTodoDeleteLoading, setComplTodoDeleteLoading] = useState<Todo[]>(
     [],
   );
+  const [inputDisabled, setInputDisabled] = useState<boolean>(false);
+  const [itemsLeft, setItemsLeft] = useState<number>();
+
+  const todoFieldRef = useRef<HTMLInputElement | null>(null);
 
   function filterTodosByStatus(): Todo[] {
     const filterActions = {
@@ -92,30 +96,45 @@ export const TodoContent: React.FC = () => {
       return;
     }
 
-    const preparedTodo = {
+    const optimisticTodo: Todo = {
       userId: USER_ID,
-      title: todoValue,
+      title: todoValue.trim(),
       completed: false,
+      isOptimistic: true,
     };
 
-    const currentTodos = todosFromServer;
+    const { isOptimistic, ...preparedTodo } = optimisticTodo;
 
-    setTodosFromServer(curTodos => [...curTodos, preparedTodo]);
+    setTodosFromServer(cur => [...cur, optimisticTodo]);
+    setInputDisabled(true);
 
     postTodo(preparedTodo)
       .then(() => getTodos())
       .then(data => setTodosFromServer(data))
-      .then(() => setTodoValue(''))
+      .then(() => {
+        setTodoValue('');
+        setInputDisabled(false);
+      })
       .catch(() => {
-        setTodosFromServer(currentTodos);
+        setTodosFromServer(currentTodos => currentTodos);
         setErrorMessage(Errors.notAdd);
         setTimeout(resetErrorMessage, 3000);
       })
-      .finally(() => setLoadingTodo(null));
+      .finally(() => {
+        setLoadingTodo(null);
+      });
   }
 
   function setLoadingValue(todo: Todo | null) {
     setLoadingTodo(todo);
+  }
+
+  function countItemsLeft() {
+    const countItems = todosFromServer.filter(
+      todo => !todo.completed && !todo.isOptimistic,
+    ).length;
+
+    setItemsLeft(countItems);
   }
 
   useEffect(() => {
@@ -142,24 +161,37 @@ export const TodoContent: React.FC = () => {
     setCompletedTodos([...todosFromServer].filter(todo => todo.completed));
   }, [todosFromServer]);
 
+  useEffect(() => {
+    if (todoFieldRef.current) {
+      todoFieldRef.current.focus();
+    }
+  }, [todosFromServer]);
+
+  useEffect(() => {
+    countItemsLeft();
+  }, [todosFromServer]);
+
   return (
     <>
       <div className="todoapp__content">
         <header className="todoapp__header">
           {/* this button should have `active` class only if all todos are completed */}
-          <button
-            type="button"
-            className={classNames('todoapp__toggle-all', {
-              active: isAllcompleted,
-            })}
-            data-cy="ToggleAllButton"
-            onClick={handleAllButtonClick}
-          />
+          {todosFromServer.length !== 0 && (
+            <button
+              type="button"
+              className={classNames('todoapp__toggle-all', {
+                active: isAllcompleted,
+              })}
+              data-cy="ToggleAllButton"
+              onClick={handleAllButtonClick}
+            />
+          )}
 
           {/* Add a todo on form submit */}
           <form onSubmit={handleSubmit}>
             <input
-              autoFocus
+              ref={todoFieldRef}
+              disabled={inputDisabled}
               value={todoValue}
               onChange={handleInputChange}
               data-cy="NewTodoField"
@@ -185,7 +217,7 @@ export const TodoContent: React.FC = () => {
         {todosFromServer.length ? (
           <footer className="todoapp__footer" data-cy="Footer">
             <span className="todo-count" data-cy="TodosCounter">
-              {todosFromServer.length - completedTodos.length} items left
+              {itemsLeft} items left
             </span>
 
             {/* Active link should have the 'selected' class */}
