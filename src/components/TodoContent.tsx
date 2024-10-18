@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Todo } from '../types/Todo';
 import { TodoList } from './TodoList';
 import {
@@ -25,9 +25,14 @@ export const TodoContent: React.FC = () => {
     [],
   );
   const [inputDisabled, setInputDisabled] = useState<boolean>(false);
-  const [itemsLeft, setItemsLeft] = useState<number>();
 
   const todoFieldRef = useRef<HTMLInputElement | null>(null);
+
+  const active = useMemo(() => {
+    return todosFromServer.filter(
+      todo => !todo.completed && !todo.isOptimistic,
+    );
+  }, [todosFromServer]);
 
   function filterTodosByStatus(): Todo[] {
     const filterActions = {
@@ -129,14 +134,6 @@ export const TodoContent: React.FC = () => {
     setLoadingTodo(todo);
   }
 
-  function countItemsLeft() {
-    const countItems = todosFromServer.filter(
-      todo => !todo.completed && !todo.isOptimistic,
-    ).length;
-
-    setItemsLeft(countItems);
-  }
-
   useEffect(() => {
     getTodos()
       .then(data => {
@@ -165,10 +162,6 @@ export const TodoContent: React.FC = () => {
     if (todoFieldRef.current) {
       todoFieldRef.current.focus();
     }
-  }, [todosFromServer]);
-
-  useEffect(() => {
-    countItemsLeft();
   }, [todosFromServer]);
 
   return (
@@ -217,7 +210,7 @@ export const TodoContent: React.FC = () => {
         {todosFromServer.length ? (
           <footer className="todoapp__footer" data-cy="Footer">
             <span className="todo-count" data-cy="TodosCounter">
-              {itemsLeft} items left
+              {active.length} items left
             </span>
 
             {/* Active link should have the 'selected' class */}
